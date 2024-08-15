@@ -32,3 +32,5 @@ tags
 # Main executable file
 quickflow
 bin/
+
+# Project specific dir
