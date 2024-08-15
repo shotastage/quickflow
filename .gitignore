@@ -1,0 +1,33 @@
+# Binary files
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Files generated after compilation
+*.out
+*.test
+*.prof
+
+# Directories
+/vendor/
+
+# Debug logs
+*.log
+
+# IDE/editor settings for VS Code, JetBrains IDE, etc.
+.vscode/
+.idea/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Test result files
+*.coverprofile
+
+# Tag files
+tags
+
+# Main executable file
+quickflow
