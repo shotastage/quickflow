@@ -18,4 +18,7 @@ func SetupRoutes(e *echo.Echo, userHandler *handler.UserHandler) {
 		userGroup.PUT("/:id/password", userHandler.UpdatePassword)
 		userGroup.DELETE("/:id", userHandler.DeleteUser)
 	}
+
+	healthHandler := handler.NewHealthHandler()
+	e.GET("/health", healthHandler.Handle)
 }
