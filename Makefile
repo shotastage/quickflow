@@ -1,6 +1,7 @@
 # Go parameters
 APP_NAME := quickflow
 BIN_DIR := ./bin
+AIR_WORKSPACE := ./tmp
 SRC_DIRS := $(shell find . -type d -name '*')
 PKG_LIST := $(shell go list ./... | grep -v /vendor/)
 
@@ -12,7 +13,7 @@ all: build
 .PHONY: run
 run:
 	@echo "Running the application..."
-	go run main.go
+	air
 
 # Build the application
 .PHONY: build
@@ -32,6 +33,7 @@ deps:
 clean:
 	@echo "Cleaning up..."
 	rm -rf $(BIN_DIR)
+	rm -rf $(AIR_WORKSPACE)
 
 # Run tests
 .PHONY: test
