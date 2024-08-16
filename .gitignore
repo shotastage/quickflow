@@ -29,8 +29,8 @@ Thumbs.db
 # Tag files
 tags
 
-# Main executable file
-quickflow
+# Project specific dirs or files
 bin/
-
-# Project specific dir
+tmp/
+.env
+.env.local
