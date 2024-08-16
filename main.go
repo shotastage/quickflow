@@ -1,8 +1,15 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"strconv"
+	"syscall"
+	"time"
+
 	"quickflow/config"
 	"quickflow/internal/application/user"
 	"quickflow/internal/infrastructure/database"
@@ -12,47 +19,88 @@ import (
 	"quickflow/pkg/logger"
 
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 )
 
 func main() {
-	err := logger.Init("info")
-	if err != nil {
-		panic(err)
+	if err := run(); err != nil {
+		log.Fatalf("Application failed to start: %v", err)
+	}
+}
+
+func run() error {
+	// Initialize logger
+	if err := logger.Init("info"); err != nil {
+		return err
 	}
 
-	// Initialize configuration
-	logger.Info("Initialize configuration...")
+	// Load configuration
 	cfg, err := config.LoadConfig()
 	if err != nil {
-		log.Fatalf("Failed to load configuration: %v", err)
+		return err
 	}
 
-	// Initialize database connection
-	logger.Info("Initialize database connector...")
-	database.InitDatabase(cfg)
+	// Initialize database
+	db, err := database.InitDatabase(cfg)
+	if err != nil {
+		return err
+	}
 	defer func() {
-		sqlDB, _ := database.GetDB().DB()
-		sqlDB.Close()
+		if err := database.CloseDatabase(db); err != nil {
+			logger.Error("Failed to close database connection", err)
+		}
 	}()
 
-	// Initialize Echo instance
-	logger.Info("Initialize HTTP IO...")
-	e := echo.New()
+	// Initialize repositories
+	userRepo := repository.NewUserRepository(db)
 
-	// Initialize User Application
-	logger.Info("Initialize User application...")
-	userRepo := repository.NewUserRepository(database.GetDB())
+	// Initialize application services
 	userService := user.NewUserService(userRepo)
+
+	// Initialize HTTP handlers
 	userHandler := handler.NewUserHandler(userService)
 
-	// Root handler
+	// Initialize Echo instance
+	e := initializeEcho()
+
+	// Setup routes
+	httpserver.SetupRoutes(e, userHandler)
+
+	// Start server
+	return startServer(e, cfg.ServerPort)
+}
+
+func initializeEcho() *echo.Echo {
+	e := echo.New()
+	e.Use(middleware.Logger())
+	e.Use(middleware.Recover())
+
 	e.GET("/", func(c echo.Context) error {
 		return c.String(http.StatusOK, "QuickFlow Main")
 	})
 
-	httpserver.SetupRoutes(e, userHandler)
+	return e
+}
 
-	e.Logger.Fatal(e.Start(":8080"))
+func startServer(e *echo.Echo, port int) error {
+	// Start server in a goroutine
+	go func() {
+		if err := e.Start(":" + strconv.Itoa(port)); err != nil && err != http.ErrServerClosed {
+			e.Logger.Fatal("shutting down the server")
+		}
+	}()
 
-	logger.Info("Server started! Application launched.")
+	// Wait for interrupt signal to gracefully shutdown the server
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := e.Shutdown(ctx); err != nil {
+		e.Logger.Fatal(err)
+	}
+
+	return nil
 }

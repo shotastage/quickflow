@@ -3,28 +3,27 @@
 package database
 
 import (
-	"log"
+	"quickflow/config"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-
-	"quickflow/config"
 )
 
-var DB *gorm.DB
-
-func InitDatabase(cfg *config.Config) {
-	var err error
+func InitDatabase(cfg *config.Config) (*gorm.DB, error) {
 	dsn := cfg.GetDSN()
 
-	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		return nil, err
 	}
 
-	log.Println("Database connection established")
+	return db, nil
 }
 
-func GetDB() *gorm.DB {
-	return DB
+func CloseDatabase(db *gorm.DB) error {
+	sqlDB, err := db.DB()
+	if err != nil {
+		return err
+	}
+	return sqlDB.Close()
 }
