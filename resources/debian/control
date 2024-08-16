@@ -1,0 +1,9 @@
+Package: quickflow-server
+Version: 1.0.0
+Section: base
+Priority: optional
+Architecture: amd64
+Essential: no
+Maintainer: Shota Shimazu <shota.shimazu@magique.app>
+Description: QuickFlow is a high-performance and flexible content management system (CMS) and API platform developed in Go.
+It leverages the Echo web framework and GORM, using a PostgreSQL database for its backend. A key feature of this application is that it allows users to freely define their own data schemas and easily build customized APIs. While offering functionalities similar to MicroCMS and Hasura, it serves as an efficient web service development platform that takes advantage of Go's speed and simplicity.
