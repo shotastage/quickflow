@@ -33,7 +33,7 @@ Main advantages of this architecture:
 The project directory structure reflects the layered architecture described above:
 
 ```
-project-root/
+quickflow/
 ├── main.go                 # Application entry point
 ├── internal/               # Project-specific non-public code
 │   ├── domain/             # Domain layer: Business logic and entities
