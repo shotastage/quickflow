@@ -24,14 +24,43 @@ type Field struct {
 }
 
 func main() {
-	domainDir := "internal/domain"
+	rootDir, err := findProjectRoot()
+	if err != nil {
+		log.Fatalf("Error finding project root: %v", err)
+	}
+
+	domainDir := filepath.Join(rootDir, "internal", "domain")
+	migrationsDir := filepath.Join(rootDir, "migrations")
+	err = os.MkdirAll(migrationsDir, 0755)
+	if err != nil {
+		log.Fatalf("Error creating migrations directory: %v", err)
+	}
+
 	models, err := parseModelsFromDomain(domainDir)
 	if err != nil {
 		log.Fatalf("Error parsing models: %v", err)
 	}
 
 	for _, model := range models {
-		generateMigration(model)
+		generateMigration(migrationsDir, model)
+	}
+}
+
+func findProjectRoot() (string, error) {
+	dir, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir, nil
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", fmt.Errorf("could not find project root")
+		}
+		dir = parent
 	}
 }
 
@@ -70,7 +99,7 @@ func parseModelFromFile(filePath, modelName string) (*Model, error) {
 	ast.Inspect(node, func(n ast.Node) bool {
 		switch x := n.(type) {
 		case *ast.TypeSpec:
-			if x.Name.Name == modelName {
+			if x.Name.Name == strings.Title(modelName) {
 				if structType, ok := x.Type.(*ast.StructType); ok {
 					model = &Model{Name: modelName}
 					for _, field := range structType.Fields.List {
@@ -106,10 +135,29 @@ func parseTags(tag *ast.BasicLit) map[string]string {
 	return tags
 }
 
-func generateMigration(model Model) {
+func generateMigration(migrationsDir string, model Model) {
 	timestamp := time.Now().Format("20060102150405")
-	fileName := fmt.Sprintf("%s_create_%s.sql", timestamp, strings.ToLower(model.Name))
+	baseName := fmt.Sprintf("%s_create_%s", timestamp, strings.ToLower(model.Name))
+	upFileName := filepath.Join(migrationsDir, baseName+".up.sql")
+	downFileName := filepath.Join(migrationsDir, baseName+".down.sql")
 
+	upContent := generateUpSQL(model)
+	downContent := generateDownSQL(model)
+
+	err := os.WriteFile(upFileName, []byte(upContent), 0644)
+	if err != nil {
+		log.Fatalf("Error writing up migration file: %v", err)
+	}
+
+	err = os.WriteFile(downFileName, []byte(downContent), 0644)
+	if err != nil {
+		log.Fatalf("Error writing down migration file: %v", err)
+	}
+
+	fmt.Printf("Generated migration files: \n%s\n%s\n", upFileName, downFileName)
+}
+
+func generateUpSQL(model Model) string {
 	content := fmt.Sprintf("-- Create %s table\n", model.Name)
 	content += fmt.Sprintf("CREATE TABLE %s (\n", strings.ToLower(model.Name))
 
@@ -126,12 +174,31 @@ func generateMigration(model Model) {
 
 	content += ");\n"
 
-	err := os.WriteFile(fileName, []byte(content), 0644)
-	if err != nil {
-		log.Fatalf("Error writing migration file: %v", err)
+	// インデックスの作成
+	for _, field := range model.Fields {
+		if field.Name == "Email" {
+			content += fmt.Sprintf("\nCREATE UNIQUE INDEX idx_%s_%s ON %s (%s);\n",
+				strings.ToLower(model.Name), strings.ToLower(field.Name),
+				strings.ToLower(model.Name), strings.ToLower(field.Name))
+		}
 	}
 
-	fmt.Printf("Generated migration file: %s\n", fileName)
+	return content
+}
+
+func generateDownSQL(model Model) string {
+	content := fmt.Sprintf("-- Drop %s table\n", model.Name)
+	content += fmt.Sprintf("DROP TABLE IF EXISTS %s;\n", strings.ToLower(model.Name))
+
+	// インデックスの削除（必要な場合）
+	for _, field := range model.Fields {
+		if field.Name == "Email" {
+			content += fmt.Sprintf("\nDROP INDEX IF EXISTS idx_%s_%s;\n",
+				strings.ToLower(model.Name), strings.ToLower(field.Name))
+		}
+	}
+
+	return content
 }
 
 func getSQLType(goType string) string {
@@ -161,10 +228,6 @@ func getConstraints(field Field) string {
 
 	if _, ok := field.Tags["json"]; ok && field.Tags["json"] != "-" {
 		constraints = append(constraints, "NOT NULL")
-	}
-
-	if field.Name == "Email" {
-		constraints = append(constraints, "UNIQUE")
 	}
 
 	if len(constraints) > 0 {
