@@ -28,8 +28,11 @@ This directory contains the developer documentation for QuickFlow, a high-perfor
 8. **[Contribution Guidelines](contributing.md)**
    Rules and guidelines for contributing to the project, including coding standards and branch policies.
 
-9. **[License](../EULA.md)**
-   A copy of the End-User License Agreement (EULA) for this project.
+9. **[Supported Operating Systems](supported-os.md)**
+   Detailed information about the operating systems supported by QuickFlow, including specific versions and any special considerations.
+
+10. **[License](../EULA.md)**
+    A copy of the End-User License Agreement (EULA) for this project.
 
 ## Notes
 
