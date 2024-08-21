@@ -24,8 +24,8 @@ func NewUserService(repo UserRepository) *UserService {
 	return &UserService{repo: repo}
 }
 
-func (s *UserService) CreateUser(username, email, password string) (*user.User, error) {
-	newUser, err := user.NewUser(username, email, password)
+func (s *UserService) CreateUser(username, firstName, lastName, email, password, phoneNumber string) (*user.User, error) {
+	newUser, err := user.NewUser(username, firstName, lastName, email, password, phoneNumber)
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +45,7 @@ func (s *UserService) GetUserByEmail(email string) (*user.User, error) {
 	return s.repo.GetByEmail(email)
 }
 
-func (s *UserService) UpdateUser(id uint, username, email string) (*user.User, error) {
+func (s *UserService) UpdateUser(id uint, username, firstName, lastName, email, phoneNumber string) (*user.User, error) {
 	existingUser, err := s.repo.GetByID(id)
 	if err != nil {
 		return nil, err
@@ -58,11 +58,32 @@ func (s *UserService) UpdateUser(id uint, username, email string) (*user.User, e
 		existingUser.Username = username
 	}
 
+	if firstName != "" {
+		if err := user.ValidateFirstName(firstName); err != nil {
+			return nil, err
+		}
+		existingUser.FirstName = firstName
+	}
+
+	if lastName != "" {
+		if err := user.ValidateLastName(lastName); err != nil {
+			return nil, err
+		}
+		existingUser.LastName = lastName
+	}
+
 	if email != "" {
 		if err := user.ValidateEmail(email); err != nil {
 			return nil, err
 		}
 		existingUser.Email = email
+	}
+
+	if phoneNumber != "" {
+		if err := user.ValidatePhoneNumber(phoneNumber); err != nil {
+			return nil, err
+		}
+		existingUser.PhoneNumber = phoneNumber
 	}
 
 	if err := s.repo.Update(existingUser); err != nil {
@@ -85,6 +106,52 @@ func (s *UserService) UpdatePassword(id uint, oldPassword, newPassword string) e
 	if err := existingUser.UpdatePassword(newPassword); err != nil {
 		return err
 	}
+
+	return s.repo.Update(existingUser)
+}
+
+func (s *UserService) UpdateProfileImage(id uint, imageURL string) error {
+	existingUser, err := s.repo.GetByID(id)
+	if err != nil {
+		return err
+	}
+
+	existingUser.SetProfileImageURL(imageURL)
+
+	return s.repo.Update(existingUser)
+}
+
+func (s *UserService) UpdateRole(id uint, role string) error {
+	existingUser, err := s.repo.GetByID(id)
+	if err != nil {
+		return err
+	}
+
+	if err := existingUser.SetRole(role); err != nil {
+		return err
+	}
+
+	return s.repo.Update(existingUser)
+}
+
+func (s *UserService) VerifyEmail(id uint) error {
+	existingUser, err := s.repo.GetByID(id)
+	if err != nil {
+		return err
+	}
+
+	existingUser.UpdateEmailVerification(true)
+
+	return s.repo.Update(existingUser)
+}
+
+func (s *UserService) UpdateLastLogin(id uint) error {
+	existingUser, err := s.repo.GetByID(id)
+	if err != nil {
+		return err
+	}
+
+	existingUser.UpdateLastLogin()
 
 	return s.repo.Update(existingUser)
 }
