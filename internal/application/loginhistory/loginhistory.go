@@ -6,25 +6,33 @@ import (
 	"context"
 
 	"quickflow/internal/domain/loginhistory"
+
+	"github.com/google/uuid"
 )
 
-type LoginHistoryRepository interface {
+type Repository interface {
 	Create(ctx context.Context, history *loginhistory.LoginHistory) error
-	GetByUserID(ctx context.Context, userID string) ([]*loginhistory.LoginHistory, error)
+	GetByUserID(ctx context.Context, userID uuid.UUID) ([]*loginhistory.LoginHistory, error)
 }
 
-type LoginHistoryService struct {
-	repo LoginHistoryRepository
+type Service interface {
+	RecordLogin(ctx context.Context, userID uuid.UUID, ipAddress, userAgent string) error
+	GetUserLoginHistory(ctx context.Context, userID uuid.UUID) ([]*loginhistory.LoginHistory, error)
 }
 
-func NewLoginHistoryService(repo LoginHistoryRepository) *LoginHistoryService {
-	return &LoginHistoryService{repo: repo}
+type loginHistoryService struct {
+	repo Repository
 }
 
-func (s *LoginHistoryService) RecordLogin(ctx context.Context, history *loginhistory.LoginHistory) error {
+func NewLoginHistoryService(repo Repository) Service {
+	return &loginHistoryService{repo: repo}
+}
+
+func (s *loginHistoryService) RecordLogin(ctx context.Context, userID uuid.UUID, ipAddress, userAgent string) error {
+	history := loginhistory.NewLoginHistory(userID, ipAddress, userAgent)
 	return s.repo.Create(ctx, history)
 }
 
-func (s *LoginHistoryService) GetUserLoginHistory(ctx context.Context, userID string) ([]*loginhistory.LoginHistory, error) {
+func (s *loginHistoryService) GetUserLoginHistory(ctx context.Context, userID uuid.UUID) ([]*loginhistory.LoginHistory, error) {
 	return s.repo.GetByUserID(ctx, userID)
 }
