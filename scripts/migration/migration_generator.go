@@ -99,7 +99,7 @@ func parseModelFromFile(filePath, modelName string) (*Model, error) {
 	ast.Inspect(node, func(n ast.Node) bool {
 		switch x := n.(type) {
 		case *ast.TypeSpec:
-			if x.Name.Name == strings.Title(modelName) {
+			if strings.ToLower(x.Name.Name) == strings.ToLower(modelName) {
 				if structType, ok := x.Type.(*ast.StructType); ok {
 					model = &Model{Name: modelName}
 					for _, field := range structType.Fields.List {
@@ -174,7 +174,7 @@ func generateUpSQL(model Model) string {
 
 	content += ");\n"
 
-	// インデックスの作成
+	// Create index
 	for _, field := range model.Fields {
 		if field.Name == "Email" {
 			content += fmt.Sprintf("\nCREATE UNIQUE INDEX idx_%s_%s ON %s (%s);\n",
@@ -190,7 +190,7 @@ func generateDownSQL(model Model) string {
 	content := fmt.Sprintf("-- Drop %s table\n", model.Name)
 	content += fmt.Sprintf("DROP TABLE IF EXISTS %s;\n", strings.ToLower(model.Name))
 
-	// インデックスの削除（必要な場合）
+	// Drop index (if necessary)
 	for _, field := range model.Fields {
 		if field.Name == "Email" {
 			content += fmt.Sprintf("\nDROP INDEX IF EXISTS idx_%s_%s;\n",
