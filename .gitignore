@@ -34,3 +34,5 @@ bin/
 tmp/
 .env
 .env.local
+
+quickflow
