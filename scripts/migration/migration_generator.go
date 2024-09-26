@@ -23,6 +23,12 @@ type Field struct {
 	Tags map[string]string
 }
 
+type Index struct {
+	Name    string
+	Columns []string
+	Unique  bool
+}
+
 func main() {
 	rootDir, err := findProjectRoot()
 	if err != nil {
@@ -42,7 +48,10 @@ func main() {
 	}
 
 	for _, model := range models {
-		generateMigration(migrationsDir, model)
+		err := generateMigration(migrationsDir, model)
+		if err != nil {
+			log.Fatalf("Error generating migration: %v", err)
+		}
 	}
 }
 
@@ -105,7 +114,7 @@ func parseModelFromFile(filePath, modelName string) (*Model, error) {
 					for _, field := range structType.Fields.List {
 						if len(field.Names) > 0 {
 							fieldName := field.Names[0].Name
-							fieldType := fmt.Sprintf("%s", field.Type)
+							fieldType := getTypeString(field.Type)
 							tags := parseTags(field.Tag)
 							model.Fields = append(model.Fields, Field{Name: fieldName, Type: fieldType, Tags: tags})
 						}
@@ -117,6 +126,25 @@ func parseModelFromFile(filePath, modelName string) (*Model, error) {
 	})
 
 	return model, nil
+}
+
+func getTypeString(expr ast.Expr) string {
+	switch t := expr.(type) {
+	case *ast.Ident:
+		return t.Name
+	case *ast.SelectorExpr:
+		return fmt.Sprintf("%s.%s", getTypeString(t.X), t.Sel.Name)
+	case *ast.StarExpr:
+		return "*" + getTypeString(t.X)
+	case *ast.ArrayType:
+		return "[]" + getTypeString(t.Elt)
+	case *ast.MapType:
+		return fmt.Sprintf("map[%s]%s", getTypeString(t.Key), getTypeString(t.Value))
+	case *ast.InterfaceType:
+		return "interface{}"
+	default:
+		return fmt.Sprintf("%T", expr)
+	}
 }
 
 func parseTags(tag *ast.BasicLit) map[string]string {
@@ -135,7 +163,7 @@ func parseTags(tag *ast.BasicLit) map[string]string {
 	return tags
 }
 
-func generateMigration(migrationsDir string, model Model) {
+func generateMigration(migrationsDir string, model Model) error {
 	timestamp := time.Now().Format("20060102150405")
 	baseName := fmt.Sprintf("%s_create_%s", timestamp, strings.ToLower(model.Name))
 	upFileName := filepath.Join(migrationsDir, baseName+".up.sql")
@@ -146,20 +174,23 @@ func generateMigration(migrationsDir string, model Model) {
 
 	err := os.WriteFile(upFileName, []byte(upContent), 0644)
 	if err != nil {
-		log.Fatalf("Error writing up migration file: %v", err)
+		return fmt.Errorf("Error writing up migration file: %v", err)
 	}
 
 	err = os.WriteFile(downFileName, []byte(downContent), 0644)
 	if err != nil {
-		log.Fatalf("Error writing down migration file: %v", err)
+		return fmt.Errorf("Error writing down migration file: %v", err)
 	}
 
 	fmt.Printf("Generated migration files: \n%s\n%s\n", upFileName, downFileName)
+	return nil
 }
 
 func generateUpSQL(model Model) string {
 	content := fmt.Sprintf("-- Create %s table\n", model.Name)
 	content += fmt.Sprintf("CREATE TABLE %s (\n", strings.ToLower(model.Name))
+
+	var indexes []Index
 
 	for i, field := range model.Fields {
 		sqlType := getSQLType(field.Type)
@@ -170,16 +201,31 @@ func generateUpSQL(model Model) string {
 			content += ","
 		}
 		content += "\n"
+
+		if dbTag, ok := field.Tags["db"]; ok {
+			tags := strings.Split(dbTag, ",")
+			for _, tag := range tags {
+				if tag == "index" || tag == "unique_index" {
+					indexes = append(indexes, Index{
+						Name:    fmt.Sprintf("idx_%s_%s", strings.ToLower(model.Name), strings.ToLower(field.Name)),
+						Columns: []string{strings.ToLower(field.Name)},
+						Unique:  tag == "unique_index",
+					})
+				}
+			}
+		}
 	}
 
 	content += ");\n"
 
-	// Create index
-	for _, field := range model.Fields {
-		if field.Name == "Email" {
-			content += fmt.Sprintf("\nCREATE UNIQUE INDEX idx_%s_%s ON %s (%s);\n",
-				strings.ToLower(model.Name), strings.ToLower(field.Name),
-				strings.ToLower(model.Name), strings.ToLower(field.Name))
+	// Create indexes
+	for _, index := range indexes {
+		if index.Unique {
+			content += fmt.Sprintf("\nCREATE UNIQUE INDEX %s ON %s (%s);\n",
+				index.Name, strings.ToLower(model.Name), strings.Join(index.Columns, ", "))
+		} else {
+			content += fmt.Sprintf("\nCREATE INDEX %s ON %s (%s);\n",
+				index.Name, strings.ToLower(model.Name), strings.Join(index.Columns, ", "))
 		}
 	}
 
@@ -190,11 +236,16 @@ func generateDownSQL(model Model) string {
 	content := fmt.Sprintf("-- Drop %s table\n", model.Name)
 	content += fmt.Sprintf("DROP TABLE IF EXISTS %s;\n", strings.ToLower(model.Name))
 
-	// Drop index (if necessary)
+	// Drop indexes
 	for _, field := range model.Fields {
-		if field.Name == "Email" {
-			content += fmt.Sprintf("\nDROP INDEX IF EXISTS idx_%s_%s;\n",
-				strings.ToLower(model.Name), strings.ToLower(field.Name))
+		if dbTag, ok := field.Tags["db"]; ok {
+			tags := strings.Split(dbTag, ",")
+			for _, tag := range tags {
+				if tag == "index" || tag == "unique_index" {
+					indexName := fmt.Sprintf("idx_%s_%s", strings.ToLower(model.Name), strings.ToLower(field.Name))
+					content += fmt.Sprintf("\nDROP INDEX IF EXISTS %s;\n", indexName)
+				}
+			}
 		}
 	}
 
@@ -202,13 +253,19 @@ func generateDownSQL(model Model) string {
 }
 
 func getSQLType(goType string) string {
+	if strings.HasPrefix(goType, "*") {
+		goType = strings.TrimPrefix(goType, "*")
+	}
+
 	switch goType {
 	case "string":
 		return "VARCHAR(255)"
-	case "int", "int32", "int64", "uint", "uint32", "uint64":
+	case "int", "int8", "int16", "int32", "int64":
+		return "INTEGER"
+	case "uint", "uint8", "uint16", "uint32", "uint64":
 		return "INTEGER"
 	case "float32", "float64":
-		return "DECIMAL(10, 2)"
+		return "REAL"
 	case "bool":
 		return "BOOLEAN"
 	case "time.Time":
@@ -221,13 +278,25 @@ func getSQLType(goType string) string {
 func getConstraints(field Field) string {
 	var constraints []string
 
-	if field.Name == "ID" {
-		constraints = append(constraints, "PRIMARY KEY")
-		constraints = append(constraints, "AUTOINCREMENT")
-	}
-
-	if _, ok := field.Tags["json"]; ok && field.Tags["json"] != "-" {
-		constraints = append(constraints, "NOT NULL")
+	if dbTag, ok := field.Tags["db"]; ok {
+		tags := strings.Split(dbTag, ",")
+		for _, tag := range tags {
+			switch tag {
+			case "primary_key":
+				constraints = append(constraints, "PRIMARY KEY")
+			case "auto_increment":
+				constraints = append(constraints, "AUTOINCREMENT")
+			case "not_null":
+				constraints = append(constraints, "NOT NULL")
+			case "unique":
+				constraints = append(constraints, "UNIQUE")
+			}
+		}
+	} else {
+		// ポインタ型でない場合はNOT NULLを追加
+		if !strings.HasPrefix(field.Type, "*") {
+			constraints = append(constraints, "NOT NULL")
+		}
 	}
 
 	if len(constraints) > 0 {
