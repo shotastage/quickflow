@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-
 # Error handling: Stop the script if any command fails
 set -e
 
@@ -7,28 +6,44 @@ set -e
 DEST_DIR="$HOME/.quickflow-dev/bin"
 REPO_URL="https://github.com/air-verse/air.git"
 REPO_DIR="air"
+GITLEAKS_REPO_URL="https://github.com/gitleaks/gitleaks.git"
+GITLEAKS_REPO_DIR="gitleaks"
 
 # Function to clone, build, and move the air binary
 install_air() {
   # Clone the repository
   git clone $REPO_URL
   cd $REPO_DIR
-
   # Run make release
   make release
-
   # Check if the destination directory exists and create if necessary
   if [ ! -d "$DEST_DIR" ];then
     mkdir -p "$DEST_DIR"
   fi
-
   # Copy the binary directly to the destination directory
   cp ./bin/darwin/air $DEST_DIR/air
   echo "Binary copied to $DEST_DIR/air."
-
   # Clean up the working directory
   cd ..
   rm -rf $REPO_DIR
+}
+
+install_gitleaks() {
+  # Clone the repository
+  git clone $GITLEAKS_REPO_URL
+  cd $GITLEAKS_REPO_DIR
+  # Build gitleaks
+  make build
+  # Check if the destination directory exists and create if necessary
+  if [ ! -d "$DEST_DIR" ];then
+    mkdir -p "$DEST_DIR"
+  fi
+  # Copy the binary to the destination directory
+  cp ./gitleaks $DEST_DIR/gitleaks
+  echo "Binary copied to $DEST_DIR/gitleaks."
+  # Clean up the working directory
+  cd ..
+  rm -rf $GITLEAKS_REPO_DIR
 }
 
 # Function to add directory to PATH
@@ -82,6 +97,9 @@ fi
 
 # Call the function to install air
 install_air
+
+# Call the function to install gitleaks
+install_gitleaks
 
 # Call the function to add the directory to the PATH
 add_to_path

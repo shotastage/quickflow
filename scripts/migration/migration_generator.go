@@ -293,7 +293,7 @@ func getConstraints(field Field) string {
 			}
 		}
 	} else {
-		// ポインタ型でない場合はNOT NULLを追加
+		// Add NOT NULL if it's not a pointer type
 		if !strings.HasPrefix(field.Type, "*") {
 			constraints = append(constraints, "NOT NULL")
 		}
