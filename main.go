@@ -67,7 +67,7 @@ func run() error {
 	httpserver.SetupRoutes(e, userHandler)
 
 	// Start server
-	return startServer(e, cfg.ServerPort)
+	return startServer(e, cfg.Server.Port)
 }
 
 func initializeEcho() *echo.Echo {
