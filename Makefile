@@ -71,6 +71,10 @@ swagger:
 	@echo "Generating Swagger documentation..."
 	swag init -g main.go
 
+.PHONY: check-leak
+check-leak:
+	gitleaks git
+
 # Help
 .PHONY: help
 help:
@@ -85,4 +89,5 @@ help:
 	@echo "  make lint               Run lint checks"
 	@echo "  make migrate            Run database migrations"
 	@echo "  make swagger            Generate Swagger documentation"
+	@echo "  make check-leak         Check leaking of secret credentials"
 	@echo "  make help               Show this help message"
