@@ -1,0 +1,13 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: QuickFlow
+Source: https://github.com/shotastage/quickflow-go
+
+Files: *
+Copyright: 2024 Shota Shimazu
+License: EULA
+ This project is closed-source and is provided under the terms of the accompanying End-User License Agreement (EULA). Please refer to the EULA file for details.
+
+Files: debian/*
+Copyright: 2024 Shota Shimazu
+License: EULA
+ These packaging files are licensed under the terms of the accompanying End-User License Agreement (EULA).

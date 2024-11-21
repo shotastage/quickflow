@@ -1,0 +1,41 @@
+#!/usr/bin/make -f
+
+# This file is a `rules` file for building the QuickFlow project.
+
+# Export variables for debhelper
+export DH_VERBOSE = 1
+export GO111MODULE = on
+
+# This is the main build target
+%:
+    dh $@
+
+# This target is for building the project
+override_dh_auto_build:
+    # Install dependencies
+    go mod tidy
+    go mod vendor
+
+    # Build the binary
+    go build -o debian/quickflow/usr/bin/quickflow
+
+# This target is for installing the project
+override_dh_auto_install:
+    # Prepare directories
+    mkdir -p debian/quickflow/usr/bin
+
+    # Install the binary
+    install -m 0755 quickflow debian/quickflow/usr/bin/quickflow
+
+# This target is for cleaning up
+override_dh_clean:
+    dh_clean
+    rm -f quickflow
+
+# This target is for testing the project
+override_dh_auto_test:
+    echo "No tests defined."
+
+# Include the standard debhelper commands
+%:
+    dh $@
