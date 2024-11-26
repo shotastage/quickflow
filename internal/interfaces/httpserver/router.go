@@ -8,7 +8,11 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-func SetupRoutes(e *echo.Echo, userHandler *handler.UserHandler) {
+func SetupRoutes(e *echo.Echo, userHandler *handler.UserHandler, statusHandler *handler.StatusHandler) {
+
+	// Status page route (root)
+	e.GET("/", statusHandler.HandleStatusPage)
+
 	// User routes
 	userGroup := e.Group("/users")
 	{

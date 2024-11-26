@@ -60,11 +60,13 @@ func run() error {
 	// Initialize HTTP handlers
 	userHandler := handler.NewUserHandler(userService)
 
+	statusHandler := handler.NewStatusHandler()
+
 	// Initialize Echo instance
 	e := initializeEcho()
 
 	// Setup routes
-	httpserver.SetupRoutes(e, userHandler)
+	httpserver.SetupRoutes(e, userHandler, statusHandler)
 
 	// Start server
 	return startServer(e, cfg.Server.Port)
@@ -75,10 +77,6 @@ func initializeEcho() *echo.Echo {
 	e.HideBanner = true
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
-
-	e.GET("/", func(c echo.Context) error {
-		return c.String(http.StatusOK, "QuickFlow Main")
-	})
 
 	return e
 }
