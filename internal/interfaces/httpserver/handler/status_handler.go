@@ -23,9 +23,7 @@ func (h *StatusHandler) HandleStatusPage(c echo.Context) error {
 	return c.HTML(http.StatusOK, statusPageTemplate)
 }
 
-// statusPageTemplate contains the HTML template for the status page
-const statusPageTemplate = `
-<!DOCTYPE html>
+const statusPageTemplate = `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -57,13 +55,13 @@ const statusPageTemplate = `
             <!-- System Status Overview -->
             <div class="bg-white shadow rounded-lg mb-6">
                 <div class="px-4 py-5 sm:p-6">
-                    <div class="flex items-center">
+                    <div class="flex items-center" id="systemStatus">
                         <div class="flex-shrink-0">
-                            <div class="rounded-full h-4 w-4 bg-green-500"></div>
+                            <div class="rounded-full h-4 w-4 bg-gray-300" id="statusIndicator"></div>
                         </div>
                         <div class="ml-3">
-                            <h3 class="text-lg font-medium text-gray-900">All Systems Operational</h3>
-                            <p class="text-sm text-gray-500">Last checked: 2 minutes ago</p>
+                            <h3 class="text-lg font-medium text-gray-900" id="statusMessage">Checking System Status...</h3>
+                            <p class="text-sm text-gray-500" id="lastChecked">Checking...</p>
                         </div>
                     </div>
                 </div>
@@ -77,31 +75,24 @@ const statusPageTemplate = `
                 <div class="border-t border-gray-200">
                     <dl>
                         <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                            <dt class="text-sm font-medium text-gray-500">API Endpoints</dt>
+                            <dt class="text-sm font-medium text-gray-500">API Server</dt>
                             <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2 flex items-center">
-                                <span class="rounded-full h-3 w-3 bg-green-500 mr-2"></span>
-                                Operational
+                                <span class="rounded-full h-3 w-3 bg-gray-300 mr-2" id="serverHealthIndicator"></span>
+                                <span id="serverHealthStatus">Checking...</span>
                             </dd>
                         </div>
                         <div class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                             <dt class="text-sm font-medium text-gray-500">Database</dt>
                             <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2 flex items-center">
-                                <span class="rounded-full h-3 w-3 bg-green-500 mr-2"></span>
-                                Operational
-                            </dd>
-                        </div>
-                        <div class="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                            <dt class="text-sm font-medium text-gray-500">Authentication</dt>
-                            <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2 flex items-center">
-                                <span class="rounded-full h-3 w-3 bg-green-500 mr-2"></span>
-                                Operational
+                                <span class="rounded-full h-3 w-3 bg-gray-300 mr-2" id="dbHealthIndicator"></span>
+                                <span id="dbHealthStatus">Checking...</span>
                             </dd>
                         </div>
                     </dl>
                 </div>
             </div>
 
-            <!-- Incident History -->
+            <!-- Incident History (Static content) -->
             <div class="bg-white shadow rounded-lg overflow-hidden">
                 <div class="px-4 py-5 sm:px-6">
                     <h3 class="text-lg font-medium text-gray-900">Recent Incidents</h3>
@@ -153,5 +144,68 @@ const statusPageTemplate = `
             </div>
         </footer>
     </div>
+
+    <script>
+        async function checkSystemStatus() {
+            try {
+                const response = await fetch('/health');
+                const data = await response.json();
+
+                const statusIndicator = document.getElementById('statusIndicator');
+                const statusMessage = document.getElementById('statusMessage');
+                const lastChecked = document.getElementById('lastChecked');
+                const serverHealthIndicator = document.getElementById('serverHealthIndicator');
+                const serverHealthStatus = document.getElementById('serverHealthStatus');
+                const dbHealthIndicator = document.getElementById('dbHealthIndicator');
+                const dbHealthStatus = document.getElementById('dbHealthStatus');
+
+                // Update server status
+                if (data.server.status === 'ok') {
+                    serverHealthIndicator.className = 'rounded-full h-3 w-3 bg-green-500 mr-2';
+                    serverHealthStatus.textContent = data.server.message || 'Operational';
+                } else {
+                    serverHealthIndicator.className = 'rounded-full h-3 w-3 bg-red-500 mr-2';
+                    serverHealthStatus.textContent = data.server.message || 'Issues Detected';
+                }
+
+                // Update database status
+                if (data.database.status === 'ok') {
+                    dbHealthIndicator.className = 'rounded-full h-3 w-3 bg-green-500 mr-2';
+                    dbHealthStatus.textContent = data.database.message || 'Operational';
+                } else {
+                    dbHealthIndicator.className = 'rounded-full h-3 w-3 bg-red-500 mr-2';
+                    dbHealthStatus.textContent = data.database.message || 'Issues Detected';
+                }
+
+                // Update overall system status
+                const isAllOk = data.server.status === 'ok' && data.database.status === 'ok';
+                if (isAllOk) {
+                    statusIndicator.className = 'rounded-full h-4 w-4 bg-green-500';
+                    statusMessage.textContent = 'All Systems Operational';
+                } else {
+                    statusIndicator.className = 'rounded-full h-4 w-4 bg-red-500';
+                    statusMessage.textContent = 'System Issues Detected';
+                }
+
+                // Update last checked time
+                const now = new Date();
+                lastChecked.textContent = 'Last checked: ' + now.toLocaleTimeString();
+
+            } catch (error) {
+                console.error('Error checking system status:', error);
+                // Update UI to show error state
+                document.getElementById('statusIndicator').className = 'rounded-full h-4 w-4 bg-red-500';
+                document.getElementById('statusMessage').textContent = 'Unable to Check System Status';
+                document.getElementById('serverHealthIndicator').className = 'rounded-full h-3 w-3 bg-red-500 mr-2';
+                document.getElementById('serverHealthStatus').textContent = 'Unable to Connect';
+                document.getElementById('dbHealthIndicator').className = 'rounded-full h-3 w-3 bg-red-500 mr-2';
+                document.getElementById('dbHealthStatus').textContent = 'Unable to Connect';
+            }
+        }
+
+        // Check status immediately and then every 30 seconds
+        checkSystemStatus();
+        setInterval(checkSystemStatus, 30000);
+    </script>
 </body>
 </html>`

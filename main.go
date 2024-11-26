@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"quickflow/config"
+	"quickflow/internal/application/health"
 	"quickflow/internal/application/user"
 	"quickflow/internal/infrastructure/database"
 	"quickflow/internal/infrastructure/repository"
@@ -60,13 +61,19 @@ func run() error {
 	// Initialize HTTP handlers
 	userHandler := handler.NewUserHandler(userService)
 
+	// Initialize status handler
+
+	healthRepo := repository.NewHealthRepository(db)
+	healthService := health.NewHealthService(healthRepo)
+	healthHandler := handler.NewHealthHandler(healthService)
+
 	statusHandler := handler.NewStatusHandler()
 
 	// Initialize Echo instance
 	e := initializeEcho()
 
 	// Setup routes
-	httpserver.SetupRoutes(e, userHandler, statusHandler)
+	httpserver.SetupRoutes(e, userHandler, statusHandler, healthHandler)
 
 	// Start server
 	return startServer(e, cfg.Server.Port)

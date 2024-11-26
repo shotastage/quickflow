@@ -8,7 +8,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-func SetupRoutes(e *echo.Echo, userHandler *handler.UserHandler, statusHandler *handler.StatusHandler) {
+func SetupRoutes(e *echo.Echo, userHandler *handler.UserHandler, statusHandler *handler.StatusHandler, healthHandler *handler.HealthHandler) {
 
 	// Status page route (root)
 	e.GET("/", statusHandler.HandleStatusPage)
@@ -23,6 +23,5 @@ func SetupRoutes(e *echo.Echo, userHandler *handler.UserHandler, statusHandler *
 		userGroup.DELETE("/:id", userHandler.DeleteUser)
 	}
 
-	healthHandler := handler.NewHealthHandler()
 	e.GET("/health", healthHandler.Handle)
 }
