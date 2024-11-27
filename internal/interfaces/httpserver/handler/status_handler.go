@@ -139,7 +139,7 @@ const statusPageTemplate = `<!DOCTYPE html>
             <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
                 <div class="text-center text-sm text-gray-500">
                     <p>For immediate support, please contact: support@quickflow.com</p>
-                    <p class="mt-1">Subscribe to incident updates: <a href="/status/subscribe" class="text-indigo-600 hover:text-indigo-500">Status Updates</a></p>
+                    <p class="mt-1">Subscribe to real-time update for system: <a href="/health" class="text-indigo-600 hover:text-indigo-500">Status Updates</a></p>
                 </div>
             </div>
         </footer>
