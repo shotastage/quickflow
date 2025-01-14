@@ -27,7 +27,7 @@ func NewQueryValidator() QueryValidator {
 func (v *queryValidator) Validate(query string) error {
 	upperQuery := strings.ToUpper(query)
 
-	// 禁止キーワードのチェック
+	// Check for forbidden keywords
 	for _, keyword := range v.forbiddenKeywords {
 		if strings.Contains(upperQuery, keyword) {
 			return &sqlexecutor.ValidationError{
